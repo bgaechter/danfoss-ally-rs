@@ -3,17 +3,8 @@ use log::*;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::env;
-use std::thread::sleep;
 use std::time::{Duration, Instant};
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        let result = 2 + 2;
-        assert_eq!(result, 4);
-    }
-}
 
 /// A struct representing a danfoss api token
 #[derive(Serialize, Deserialize, Debug)]
@@ -69,8 +60,73 @@ pub struct Status {
 }
 
 /// Struct that holds all information to interact with the Danfoss ally api
+/// 
+/// You will need credentials for the API that are exposed through environment
+/// variables (`DANFOSS_API_KEY` and `DANFOSS_API_SECRET`).
+/// 
+/// The log level can be set with the `RUST_LOG` environment variable.
+/// 
+/// # Examples
+/// 
+/// Simple example
+/// ```
+/// use danfoss_ally_rs::AllyApi;
+///
+/// let mut danfoss_api: AllyApi = AllyApi::new();
+/// danfoss_api.get_token();
+/// danfoss_api.get_devices();
+///
+/// ```
+/// 
+/// More comprehensive example that fetches the device status every 30 seconds
+/// and handles refreshing the token
+/// 
+/// ```
+/// use danfoss_ally_rs::AllyApi;
+/// use chrono::Utc;
+/// use log::*;
+/// use std::env;
+/// use std::thread::sleep;
+/// use std::time::{Duration, Instant, SystemTime};
+/// 
+
+/// #[cfg(not(target_arch = "wasm32"))]
+/// #[tokio::main]
+/// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+///     env_logger::init();
+///     info! {"Starting up"};
+///     let danfoss_api = AllyApi::new();
+///     loop {
+///         sleep(Duration::new(30, 0));
+///         if self.danfoss_api.time_since_token_renewal.elapsed().as_secs()
+///             >= self.danfoss_api.token.expires_in.parse::<u64>()?
+///         {
+///             self.danfoss_api.get_token()
+///                 .await
+///                 .unwrap_or_else(|e| error!("Could not fetch token. {:?}", e));
+///             self.danfoss_api.time_since_token_renewal = Instant::now();
+///         }
+///         self.danfoss_api.get_devices()
+///             .await
+///             .unwrap_or_else(|e| error!("Could not get devices. {:?}", e));
+///         self.danfoss_api.time_since_update = Instant::now();
+///         for device in &self.devices {
+///             for status in &device.status {
+///                 if status.code == "va_temperature" || status.code == "temp_current" {
+///                     debug!("{}: {}", device.name, status.value);
+///                 }
+///             }
+///         }
+///     }
+///     Ok(())
+/// }
+///
+/// #[cfg(target_arch = "wasm32")]
+/// fn main() {}
+/// 
+/// ```
 #[derive(Debug)]
-pub struct API {
+pub struct AllyApi {
     /// List of devices connected to the account
     pub devices: Vec<Device>,
     /// Access token for the API
@@ -89,22 +145,14 @@ pub struct API {
 }
 
 /// API client implementation for Danfoss Ally
-/// # Examples
+/// 
 ///
-/// ```
-/// use danfoss_ally_rs::API;
-///
-/// let mut danfoss_api: API = API::new();
-/// danfoss_api.get_token();
-/// danfoss_api.get_devices();
-///
-/// ```
-impl API {
+impl AllyApi {
     /// Create new danfoss ally client
     pub fn new() -> Self {
-        let api_key = env::var("DANFOSS_API_KEY").expect("No Danfoss API key provided");
+        let api_key = env::var("DANFOSS_API_KEY").expect("No Danfoss API key provided. Please set DANFOSS_API_KEY environment variable.");
 
-        let api_secret = env::var("DANFOSS_API_SECRET").expect("No Danfoss API secret provided.");
+        let api_secret = env::var("DANFOSS_API_SECRET").expect("No Danfoss API secret provided.Please set DANFOSS_API_SECRET environment variable.");
 
         Self {
             devices: vec![],
@@ -119,37 +167,6 @@ impl API {
             time_since_token_renewal: Instant::now(),
             reqwest_client: reqwest::Client::new(),
             polling_interval: Duration::new(30,0),
-        }
-    }
-
-    /// Fetch data in a loop indefinitely.
-    pub async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        loop {
-            sleep(self.polling_interval);
-            if self.time_since_token_renewal.elapsed().as_secs()
-                >= self.token.expires_in.parse::<u64>()?
-            {
-                self.get_token()
-                    .await
-                    .unwrap_or_else(|e| error!("Could not fetch token. {:?}", e));
-                self.time_since_token_renewal = Instant::now();
-            }
-            self.get_devices()
-                .await
-                .unwrap_or_else(|e| error!("Could not get devices. {:?}", e));
-            self.time_since_update = Instant::now();
-            self.print_room_temperatures();
-        }
-    }
-
-    /// Debug print room temperatures
-    pub fn print_room_temperatures(&self) {
-        for device in &self.devices {
-            for status in &device.status {
-                if status.code == "va_temperature" || status.code == "temp_current" {
-                    debug!("{}: {}", device.name, status.value);
-                }
-            }
         }
     }
     /// Fetch access token with the provided credentials
@@ -167,11 +184,11 @@ impl API {
             .form(&params)
             .send()
             .await?;
-
         self.token = serde_json::from_str(res.text().await?.as_str())?;
         Ok(())
     }
-    /// Get all devices and their status
+    
+    /// Get all devices and their status from the API
     pub async fn get_devices(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let res = self
             .reqwest_client
@@ -185,6 +202,16 @@ impl API {
             .await?;
         let devices: DevicesResponse = serde_json::from_str(res.text().await?.as_str())?;
         self.devices = devices.result;
+        self.time_since_update = Instant::now();
+        if log_enabled!(Level::Debug) {
+            for device in &self.devices {
+                for status in &device.status {
+                    if status.code == "va_temperature" || status.code == "temp_current" {
+                        debug!("{}: {}", device.name, status.value);
+                    }
+                }
+            }
+        }
         Ok(())
     }
 }
