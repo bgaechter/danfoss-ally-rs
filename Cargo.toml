@@ -11,7 +11,7 @@ description = """
 A simple rust library to interact with the danfoss ally api
 """
 categories = ["api-bindings"]
-keywords = ["danfoss", "home automation", "danfoss api"]
+keywords = ["danfoss", "home-automation", "danfoss-ally", "danfoss-api"]
 
 [dependencies]
 base64 = "0.20.0"
