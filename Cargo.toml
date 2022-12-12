@@ -1,0 +1,23 @@
+[package]
+name = "danfoss-ally-rs"
+version = "0.0.1"
+edition = "2021"
+authors = ["Benny Gaechter"]
+license = "Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/bgaechter/danfoss-ally-rs"
+documentation = "https://github.com/bgaechter/danfoss-ally-rs/wiki"
+description = """
+A simple rust library to interact with the danfoss ally api
+"""
+categories = ["api-bindings"]
+keywords = ["danfoss", "home automation", "danfoss api"]
+
+[dependencies]
+base64 = "0.20.0"
+env_logger = "0.10.0"
+log = "0.4.17"
+reqwest = "0.11.13"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0.89"
+tokio = { version = "1", features = ["full"] }
