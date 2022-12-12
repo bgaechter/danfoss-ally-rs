@@ -16,20 +16,20 @@ mod tests {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct Token {
-    access_token: String,
-    token_type: String,
-    expires_in: String,
+pub struct Token {
+    pub access_token: String,
+    pub token_type: String,
+    pub expires_in: String,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-struct DevicesResponse {
+pub struct DevicesResponse {
     pub result: Vec<Device>,
     pub t: i64,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-struct Device {
+pub struct Device {
     pub active_time: i64,
     pub create_time: i64,
     pub id: String,
@@ -43,21 +43,21 @@ struct Device {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-struct Status {
+pub struct Status {
     pub code: String,
     pub value: Value,
 }
 
 #[derive(Debug)]
 pub struct API {
-    devices: Vec<Device>,
-    token: Token,
+    pub devices: Vec<Device>,
+    pub token: Token,
+    pub time_since_update: Instant,
+    pub time_since_token_renewal: Instant,
+    pub polling_interval: Duration,
     api_key: String,
     api_secret: String,
-    time_since_update: Instant,
-    time_since_token_renewal: Instant,
     reqwest_client: reqwest::Client,
-    polling_interval: Duration,
 }
 
 
